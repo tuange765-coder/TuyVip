@@ -47,8 +47,15 @@ st.markdown("""
 # 2. CONEXIÓN A SUPABASE (PostgreSQL en la nube)
 # ==========================================
 def get_conn():
-    """Devuelve una conexión a la base de datos PostgreSQL de Supabase."""
-    return psycopg2.connect(st.secrets["DATABASE_URL"])
+    """Devuelve una conexión a la base de datos PostgreSQL de Supabase usando variables separadas."""
+    return psycopg2.connect(
+        host=st.secrets["db"]["host"],
+        port=st.secrets["db"]["port"],
+        user=st.secrets["db"]["user"],
+        password=st.secrets["db"]["password"],
+        dbname=st.secrets["db"]["dbname"],
+        options="-c search_path=public"
+    )
 
 
 def init_db():
@@ -107,7 +114,7 @@ def init_db():
 
     c.execute("SELECT * FROM usuarios WHERE username = 'admin'")
     if not c.fetchone():
-        admin_hash = hash_password("admin123").decode() if isinstance(hash_password("admin123"), bytes) else hash_password("admin123")
+        admin_hash = hash_password("admin123")
         c.execute(
             "INSERT INTO usuarios (username, password_hash, comprado, es_admin) VALUES ('admin', %s, 1, 1)",
             (admin_hash,)
@@ -583,6 +590,22 @@ def juego_principal():
                     conn.close()
                     st.success(f"Se abonaron 500 TuyCoins a {user_target}.")
                     st.rerun()
+            
+            st.markdown("---")
+            st.markdown("### 🔑 Restablecer Contraseña de Usuario")
+            nueva_pass = st.text_input("Nueva contraseña para el usuario:", type="password", key="admin_new_pass")
+            if st.button("🔄 Cambiar Contraseña"):
+                if nueva_pass:
+                    conn = get_conn()
+                    cur = conn.cursor()
+                    cur.execute("UPDATE usuarios SET password_hash = %s WHERE username = %s", 
+                                (hash_password(nueva_pass), user_target))
+                    conn.commit()
+                    cur.close()
+                    conn.close()
+                    st.success(f"Contraseña de {user_target} actualizada correctamente.")
+                else:
+                    st.warning("Escribe una nueva contraseña.")
 
 
 # ==========================================
